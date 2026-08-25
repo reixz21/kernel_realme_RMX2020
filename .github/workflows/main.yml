@@ -52,7 +52,7 @@ jobs:
           restore-keys: |
             ccache-${{ github.ref }}-
             ccache-
-      
+            
       - name: Build kernel
         run: |
           export ARCH=arm64
@@ -65,7 +65,11 @@ jobs:
           ./scripts/config --file out/.config \
             -e KSU \
             -e KPROBES \
-            -e KPROBE_EVENTS
+            -e KPROBE_EVENTS \
+            -d MODULE_SIG \
+            -d MODULE_SIG_ALL \
+            -d SYSTEM_TRUSTED_KEYS \
+            --set-str SYSTEM_TRUSTED_KEYS ""
 
           make O=out ARCH=arm64 olddefconfig
 
@@ -74,7 +78,7 @@ jobs:
             CC=clang \
             LLVM=1 \
             CONFIG_NO_ERROR_ON_MISMATCH=y
-
+            
       - name: Package with AnyKernel3
         run: |
           IMAGE="out/arch/arm64/boot/Image.gz-dtb"
@@ -85,7 +89,7 @@ jobs:
           git clone --depth=1 https://github.com/sarthakroy2002/AnyKernel3.git AnyKernel
           cp "$IMAGE" AnyKernel
           cd AnyKernel
-          zip -r9 Test-OSS-KERNEL-RMX2020-NEOLIT.zip .
+          zip -r9 NIGA-Test-OSS-KERNEL-RMX2020-ARIX.zip .
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
