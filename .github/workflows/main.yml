@@ -23,20 +23,22 @@ jobs:
 
       - name: Apply SUSFS
         run: |
+          sudo apt-get install -y patchutils
+
           git clone --depth=1 -b kernel-4.14 https://gitlab.com/simonpunk/susfs4ksu susfs4ksu
 
-           cp susfs4ksu/kernel_patches/fs/* fs/
+          cp susfs4ksu/kernel_patches/fs/* fs/
           cp susfs4ksu/kernel_patches/include/linux/* include/linux/
 
-          patch -p1 -N --fuzz=3 --reject-file=- \
-            < susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.14.patch \
-            2>&1 | tee susfs_root_patch.log || true
+           filterdiff -x 'a/kernel/*' -x 'b/kernel/*' \
+            susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.14.patch \
+            > susfs_fs_include_only.patch
+
+          patch -p1 -f -N --fuzz=3 < susfs_fs_include_only.patch
 
           cd KernelSU-Next
-          patch -p1 -N --fuzz=3 \
-            < ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
+          patch -p1 -f -N --fuzz=3 < ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
           cd ..
-
       - name: Set kernel local version
         run: echo "-Arix-RMX2020-v1" > localversion
 
