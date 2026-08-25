@@ -21,21 +21,6 @@ jobs:
         run: |
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
 
-      
-      - name: Apply SUSFS
-        run: |
-          git clone --depth=1 -b kernel-4.14 https://gitlab.com/simonpunk/susfs4ksu susfs4ksu
-
-          cp susfs4ksu/kernel_patches/fs/* fs/
-          cp susfs4ksu/kernel_patches/include/linux/* include/linux/
-
-          patch -p1 -f -N --fuzz=3 < susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
-
-          
-          cd KernelSU-Next
-          patch -p1 -f -N --fuzz=3 < ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
-          cd ..
-
       - name: Set kernel local version
         run: echo "-Arix-RMX2020-v1" > localversion
 
@@ -43,14 +28,6 @@ jobs:
         run: |
           CONFIG=arch/arm64/configs/RMX2020_defconfig
           echo "CONFIG_KSU=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> $CONFIG
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> $CONFIG
           echo "CONFIG_OVERLAY_FS=y" >> $CONFIG
           echo "CONFIG_OVERLAY_FS_REDIRECT_DIR=y" >> $CONFIG
 
