@@ -67,9 +67,7 @@ jobs:
             -e KPROBES \
             -e KPROBE_EVENTS \
             -d MODULE_SIG \
-            -d MODULE_SIG_ALL \
-            -d SYSTEM_TRUSTED_KEYS \
-            --set-str SYSTEM_TRUSTED_KEYS ""
+            -d MODULE_SIG_ALL
 
           make O=out ARCH=arm64 olddefconfig
 
@@ -77,8 +75,9 @@ jobs:
           make -j"$(nproc)" O=out \
             CC=clang \
             LLVM=1 \
-            CONFIG_NO_ERROR_ON_MISMATCH=y
-            
+            CONFIG_NO_ERROR_ON_MISMATCH=y \
+          || PATH="${PWD}/clang/bin:${PATH}" make -j1 O=out CC=clang LLVM=1
+          
       - name: Package with AnyKernel3
         run: |
           IMAGE="out/arch/arm64/boot/Image.gz-dtb"
