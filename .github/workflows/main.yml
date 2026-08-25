@@ -1,49 +1,104 @@
-name: Build Test Kernel
+name: Build Kernel
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest   # 4 vCPU / 16GB, free & unlimited on public repos
     steps:
       - name: Checkout kernel source
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Install build deps
+      - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bc bison flex libssl-dev libelf-dev zip curl git python3
+          sudo apt-get install -y build-essential bc bison flex libssl-dev \
+            libncurses-dev libelf-dev ccache python3 zip git wget
 
-      - name: Setup KernelSU-Next
+      - name: Cache AOSP Clang toolchain
+        id: cache-clang
+        uses: actions/cache@v4
+        with:
+          path: clang
+          key: aosp-clang-r510928
+
+      - name: Download AOSP Clang (if not cached)
+        if: steps.cache-clang.outputs.cache-hit != 'true'
         run: |
-          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
-
-      - name: Set kernel local version
-        run: echo "-Arix-RMX2020-v1" > localversion
-
-      - name: Enable configs
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-14.0.0_r50/clang-r510928.tar.gz -O aosp-clang.tar.gz
+          mkdir clang && tar -xf aosp-clang.tar.gz -C clang && rm -f aosp-clang.tar.gz
+      
+      - name: Integrate KernelSU Next (Legacy)
         run: |
-          CONFIG=arch/arm64/configs/RMX2020_defconfig
-          echo "CONFIG_KSU=y" >> $CONFIG
-          echo "CONFIG_OVERLAY_FS=y" >> $CONFIG
-          echo "CONFIG_OVERLAY_FS_REDIRECT_DIR=y" >> $CONFIG
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s legacy
+      
+      - name: Patch KernelSU Next for Linux 4.14
+        run: |
+          sed -i 's/struct timespec64 ts;/struct timespec ts;/g' drivers/kernelsu/sulog/event.c
+          
+      - name: Enable ccache
+        run: |
+          echo "USE_CCACHE=1" >> $GITHUB_ENV
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
+      - name: Cache ccache directory
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ github.ref }}-
+            ccache-
+      
       - name: Build kernel
         run: |
-          chmod +x build.sh
-          ./build.sh
+          export ARCH=arm64
+          export LC_ALL=C
+          rm -rf out
+          mkdir -p out
+
+          make O=out ARCH=arm64 RMX2020_defconfig
+
+          ./scripts/config --file out/.config \
+            -e KSU \
+            -e KPROBES \
+            -e KPROBE_EVENTS
+
+          make O=out ARCH=arm64 olddefconfig
+
+          PATH="${PWD}/clang/bin:${PATH}" \
+          make -j"$(nproc)" O=out \
+            CC=clang \
+            LLVM=1 \
+            CONFIG_NO_ERROR_ON_MISMATCH=y
+
+      - name: Package with AnyKernel3
+        run: |
+          IMAGE="out/arch/arm64/boot/Image.gz-dtb"
+          if [[ ! -f "$IMAGE" ]]; then
+            echo "❌ Kernel image not found at $IMAGE"
+            exit 1
+          fi
+          git clone --depth=1 https://github.com/sarthakroy2002/AnyKernel3.git AnyKernel
+          cp "$IMAGE" AnyKernel
+          cd AnyKernel
+          zip -r9 Test-OSS-KERNEL-RMX2020-NEOLIT.zip .
 
       - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: Arix-RMX2020-v1
-          path: AnyKernel/*.zip
+          name: kernel-flashable-${{ github.sha }}
+          path: AnyKernel/NIGA-Test-OSS-KERNEL-RMX2020-ARIX.zip
+          retention-days: 14
 
-      - name: Upload raw Image
+      - name: Upload raw build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Image-gz-dtb
-          path: out/arch/arm64/boot/Image.gz-dtb
+          name: kernel-raw-${{ github.sha }}
+          path: |
+            out/arch/arm64/boot/Image*
+            out/.config
+          retention-days: 14
