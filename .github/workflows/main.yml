@@ -79,6 +79,20 @@ jobs:
             CONFIG_NO_ERROR_ON_MISMATCH=y \
           || PATH="${PWD}/clang/bin:${PATH}" make -j1 O=out CC=clang LLVM=1
           
+      - name: Verify KernelSU-Next Kconfig integration
+        run: |
+          echo "--- drivers/Kconfig ---"
+          grep -n "kernelsu" drivers/Kconfig || echo "NOT FOUND in drivers/Kconfig"
+          echo "--- drivers/Makefile ---"
+          grep -n "kernelsu" drivers/Makefile || echo "NOT FOUND in drivers/Makefile"   
+        
+      - name: Ensure KernelSU-Next wired into Kconfig/Makefile
+        run: |
+          grep -q "drivers/kernelsu/Kconfig" drivers/Kconfig || \
+            sed -i '/endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+          grep -q "drivers/kernelsu" drivers/Makefile || \
+            echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+            
       - name: Package with AnyKernel3
         run: |
           IMAGE="out/arch/arm64/boot/Image.gz-dtb"
