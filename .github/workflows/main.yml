@@ -1,0 +1,74 @@
+name: Build Test Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison flex libssl-dev libelf-dev zip curl git python3
+
+      - name: Swap
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
+      - name: Setup KernelSU-Next
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+
+      - name: Apply SUSFS
+        run: |
+          git clone --depth=1 -b kernel-4.14 https://gitlab.com/simonpunk/susfs4ksu susfs4ksu
+          cp susfs4ksu/kernel_patches/fs/* fs/
+          cp susfs4ksu/kernel_patches/include/linux/* include/linux/
+          patch -p1 < susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
+          cd KernelSU-Next
+          patch -p1 < ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch || true
+          cd ..
+
+      - name: Set kernel local version
+        run: echo "-Arix-RMX2020-v1" > localversion
+
+      - name: Enable configs
+        run: |
+          CONFIG=arch/arm64/configs/RMX2020_defconfig
+          echo "CONFIG_KSU=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> $CONFIG
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> $CONFIG
+          echo "CONFIG_OVERLAY_FS=y" >> $CONFIG
+          echo "CONFIG_OVERLAY_FS_REDIRECT_DIR=y" >> $CONFIG
+
+      - name: Build kernel
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload flashable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arix-RMX2020-v1
+          path: AnyKernel/*.zip
+
+      - name: Upload raw Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: Image-gz-dtb
+          path: out/arch/arm64/boot/Image.gz-dtb
