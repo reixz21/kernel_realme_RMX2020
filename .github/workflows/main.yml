@@ -24,11 +24,17 @@ jobs:
       - name: Apply SUSFS
         run: |
           git clone --depth=1 -b kernel-4.14 https://gitlab.com/simonpunk/susfs4ksu susfs4ksu
-          cp susfs4ksu/kernel_patches/fs/* fs/
+
+           cp susfs4ksu/kernel_patches/fs/* fs/
           cp susfs4ksu/kernel_patches/include/linux/* include/linux/
-          patch -p1 < susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
+
+          patch -p1 -N --fuzz=3 --reject-file=- \
+            < susfs4ksu/kernel_patches/50_add_susfs_in_kernel-4.14.patch \
+            2>&1 | tee susfs_root_patch.log || true
+
           cd KernelSU-Next
-          patch -p1 < ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch || true
+          patch -p1 -N --fuzz=3 \
+            < ../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
           cd ..
 
       - name: Set kernel local version
