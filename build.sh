@@ -6,8 +6,8 @@ rm -rf AnyKernel
 source ~/.bashrc && source ~/.profile
 export LC_ALL=C && export USE_CCACHE=1
 export ARCH=arm64
-export KBUILD_BUILD_HOST=neolit
-export KBUILD_BUILD_USER="sarthakroy2002"
+export KBUILD_BUILD_HOST=ARIX-RMX2020-v1
+export KBUILD_BUILD_USER="testest"
 if [ ! -d "clang" ]; then
     wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-14.0.0_r50/clang-r510928.tar.gz -O "aosp-clang.tar.gz"
     mkdir clang && tar -xf aosp-clang.tar.gz -C clang && rm -rf aosp-clang.tar.gz
@@ -38,7 +38,7 @@ zipping() {
 
     (
         cd AnyKernel || exit 1
-        zip -r9 Test-OSS-KERNEL-RMX2020-NEOLIT.zip .
+        zip -r9 NIGA-Test-OSS-KERNEL-RMX2020-ARIX.zip .
     )
 }
 
