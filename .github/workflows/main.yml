@@ -60,15 +60,16 @@ jobs:
           rm -rf out
           mkdir -p out
 
-          make O=out ARCH=arm64 RMX2020_defconfig
-
+          make O=out ARCH=arm64 RMX2020_defconfig          
           ./scripts/config --file out/.config \
             -e KSU \
             -e KPROBES \
             -e KPROBE_EVENTS \
+            -e KSU_KPROBE_HOOKS \
+            -e MODULES \
             -d MODULE_SIG \
             -d MODULE_SIG_ALL
-
+            
           make O=out ARCH=arm64 olddefconfig
 
           PATH="${PWD}/clang/bin:${PATH}" \
